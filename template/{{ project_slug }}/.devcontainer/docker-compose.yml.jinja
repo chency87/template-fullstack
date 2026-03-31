@@ -1,5 +1,6 @@
 services:
   dev:
+    image: {{ project_slug }}-devcontainer
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
