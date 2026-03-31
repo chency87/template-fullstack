@@ -1,0 +1,200 @@
+# syntax=docker/dockerfile:1.7
+
+# =============================================================================
+# ZeroClaw development + deployment image
+# - Devcontainer-friendly
+# - uv-first Python workflow
+# - Ships the official zeroclaw binary from a pinned GHCR tag
+# =============================================================================
+
+ARG ZEROCLAW_VERSION=latest
+
+FROM ghcr.io/astral-sh/uv:latest AS uv-binary
+
+FROM ghcr.io/zeroclaw-labs/zeroclaw:${ZEROCLAW_VERSION} AS zeroclaw-binary
+
+FROM debian:bookworm-slim AS tools-builder
+
+ARG HUGO_VERSION=0.158.0
+ARG NODE_VERSION=24.x
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION}" | bash - \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g --prefix /opt/agent-browser agent-browser \
+    && npm install -g --prefix /opt/opencode opencode-ai
+
+RUN corepack enable \
+    && corepack prepare pnpm@latest --activate \
+    && install -d /opt/pnpm/bin \
+    && cp "$(command -v pnpm)" /opt/pnpm/bin/pnpm
+
+RUN curl -fsSL \
+    "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz" \
+    | tar -xz -C /usr/local/bin hugo \
+    && chmod +x /usr/local/bin/hugo \
+    && hugo version
+
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL \
+    "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz" \
+    | tar -xz --strip-components=1 -C /usr/local/bin \
+        "ripgrep-14.1.1-x86_64-unknown-linux-musl/rg" \
+    && rg --version
+
+RUN curl -fsSL \
+    "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-x86_64-unknown-linux-musl.tar.gz" \
+    | tar -xz --strip-components=1 -C /usr/local/bin \
+        "fd-v10.2.0-x86_64-unknown-linux-musl/fd" \
+    && fd --version
+
+RUN curl -fsSL \
+    "https://github.com/casey/just/releases/download/1.40.0/just-1.40.0-x86_64-unknown-linux-musl.tar.gz" \
+    | tar -xz -C /usr/local/bin just \
+    && just --version
+
+RUN curl -fsSL \
+    "https://github.com/XAMPPRocky/tokei/releases/download/v12.1.2/tokei-x86_64-unknown-linux-musl.tar.gz" \
+    | tar -xz -C /usr/local/bin tokei \
+    && tokei --version
+
+RUN curl -fsSL \
+    "https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64" \
+    -o /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && yq --version
+
+FROM debian:bookworm-slim AS runtime
+
+ARG NODE_VERSION=24.x
+ARG ZEROCLAW_VERSION=latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    make \
+    gcc \
+    g++ \
+    python3 \
+    python3-pip \
+    python3-venv \
+    jq \
+    tree \
+    sqlite3 \
+    bat \
+    sudo \
+    zip \
+    unzip \
+    chromium \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION}" | bash - \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=uv-binary /uv /uvx /usr/local/bin/
+COPY --from=tools-builder /opt/agent-browser /opt/agent-browser
+COPY --from=tools-builder /opt/opencode /opt/opencode
+COPY --from=tools-builder /opt/pnpm /opt/pnpm
+COPY --from=tools-builder /usr/bin/gh /usr/local/bin/gh
+COPY --from=tools-builder /usr/local/bin/hugo /usr/local/bin/hugo
+COPY --from=tools-builder /usr/local/bin/rg /usr/local/bin/rg
+COPY --from=tools-builder /usr/local/bin/fd /usr/local/bin/fd
+COPY --from=tools-builder /usr/local/bin/just /usr/local/bin/just
+COPY --from=tools-builder /usr/local/bin/tokei /usr/local/bin/tokei
+COPY --from=tools-builder /usr/local/bin/yq /usr/local/bin/yq
+COPY --from=zeroclaw-binary /usr/local/bin/zeroclaw /usr/local/bin/zeroclaw
+
+RUN groupadd --gid 1000 user \
+    && useradd \
+        --uid 1000 \
+        --gid 1000 \
+        --home-dir /zeroclaw-data \
+        --shell /bin/bash \
+        --no-create-home \
+        --comment "ZeroClaw agent user" \
+        user \
+    && echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user \
+    && chmod 0440 /etc/sudoers.d/user
+
+RUN mkdir -p \
+    /zeroclaw-data/.zeroclaw \
+    /zeroclaw-data/workspace \
+    /zeroclaw-data/.cargo/bin \
+    /zeroclaw-data/.cargo/registry \
+    /zeroclaw-data/.npm/bin \
+    /zeroclaw-data/.npm/lib \
+    /zeroclaw-data/.local \
+    /zeroclaw-data/.cache/uv \
+    /zeroclaw-data/.config \
+    /opt/venv \
+    && chown -R user:user /zeroclaw-data /opt/venv
+
+RUN ln -sf /usr/bin/batcat /usr/local/bin/bat
+
+RUN git config --system user.email "agent@zeroclaw.local" \
+    && git config --system user.name "ZeroClaw Agent" \
+    && git config --system init.defaultBranch main \
+    && git config --system safe.directory '*'
+
+ENV ZEROCLAW_WORKSPACE=/zeroclaw-data/workspace
+ENV ZEROCLAW_ALLOW_PUBLIC_BIND=true
+ENV HOME=/zeroclaw-data
+ENV SHELL=/bin/bash
+ENV VIRTUAL_ENV=/opt/venv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+ENV UV_CACHE_DIR=/zeroclaw-data/.cache/uv
+ENV CARGO_HOME=/zeroclaw-data/.cargo
+ENV NPM_CONFIG_PREFIX=/zeroclaw-data/.npm
+ENV PIP_USER=false
+ENV PYTHONUSERBASE=/zeroclaw-data/.local
+ENV CHROME_PATH=/usr/bin/chromium
+ENV CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage --headless"
+ENV PATH="/opt/venv/bin:/opt/agent-browser/bin:/opt/pnpm/bin:/opt/opencode/bin:/zeroclaw-data/.cargo/bin:/zeroclaw-data/.npm/bin:/zeroclaw-data/.local/bin:/usr/local/bin:/usr/bin:/bin"
+
+USER user:user
+
+RUN uv venv "${VIRTUAL_ENV}"
+
+WORKDIR /zeroclaw-data
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=20s \
+    CMD ["zeroclaw", "status"]
+
+ENTRYPOINT ["zeroclaw"]
+CMD ["daemon"]

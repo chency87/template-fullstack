@@ -1,0 +1,45 @@
+{
+  "name": "{{ project_name }}",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+{% if stack_choice == "agents" %}
+  "workspaceFolder": "/zeroclaw-data",
+  "remoteEnv": {
+    "VIRTUAL_ENV": "/opt/venv",
+    "PATH": "/opt/venv/bin:${containerEnv:PATH}",
+    "UV_PROJECT_ENVIRONMENT": "/opt/venv",
+    "ZEROCLAW_WORKSPACE": "/zeroclaw-data/workspace"
+  },
+{% else %}
+  "workspaceFolder": "{{ workspace_dir }}",
+  "remoteEnv": {
+    "VIRTUAL_ENV": "/opt/venv",
+    "PATH": "/opt/venv/bin:${containerEnv:PATH}",
+    "UV_PROJECT_ENVIRONMENT": "/opt/venv"
+  },
+{% endif %}
+  "features": {
+    "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
+      "packages": "starship"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker"{% if stack_choice == "fullstack" and with_node %},
+        "dbaeumer.vscode-eslint"{% endif %}
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.terminal.activateEnvironment": false
+      }
+    }
+  },
+{% if stack_choice == "agents" %}
+  "remoteUser": "user"
+{% else %}
+  "remoteUser": "user"
+{% endif %}
+}

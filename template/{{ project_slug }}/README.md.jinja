@@ -1,0 +1,88 @@
+# {{ project_name }}
+
+{{ project_description }}
+
+{% if stack_choice == "agents" %}
+## Runtime
+
+- `ci`: `{{ ci }}`
+- `runtime`: `ZeroClaw workspace{{ ' + GPU runtime' if with_gpu else '' }}`
+- `python_version`: `{{ python_version }}`
+- `base_image`: `{{ base_python_image }}`
+{% if with_gpu %}
+- `pytorch_cuda_tag`: `{{ pytorch_cuda_tag }}`
+{% endif %}
+
+## Layout
+
+- `.config/` contains project configuration, including MkDocs config.
+- `.devcontainer/` contains the development container setup.
+- `workspace/` contains your ZeroClaw prompts, orchestration, and deployment assets.
+- `docs/` contains the project documentation site content.
+
+## Development
+
+Open this folder in VS Code and run `Dev Containers: Reopen in Container`.
+
+This template creates a ZeroClaw-oriented deployment workspace. It does not create a Python package scaffold.
+
+To preview the docs locally, run:
+
+```sh
+uvx mkdocs serve -f .config/mkdocs.yml
+```
+
+{% else %}
+## Runtime
+
+- `stack_choice`: `{{ stack_choice }}`
+- `ci`: `{{ ci }}`
+- `runtime`: `{{ base_runtime_summary }}`
+- `python_version`: `{{ python_version }}`
+- `base_python_image`: `{{ base_python_image }}`
+{% if with_gpu %}
+- `pytorch_cuda_tag`: `{{ pytorch_cuda_tag }}`
+{% endif %}
+{% if stack_choice == "fullstack" %}
+- `with_node`: `{{ with_node }}`
+{% if with_node %}
+- `node_version`: `{{ node_version }}`
+- `node_manager`: `nvm`
+- `nvm_version`: `{{ nvm_version }}`
+- `pnpm_version`: `{{ pnpm_version }}`
+- `package_manager`: `{{ package_manager }}`
+{% endif %}
+{% endif %}
+
+## Package Layout
+
+- `src/{{ package_name }}/` contains the Python package.
+- `tests/` contains test coverage for the package.
+- `docs/` contains the MkDocs content for the project site.
+- `.devcontainer/` contains the development container setup.
+
+## Development
+
+Open this folder in VS Code and run `Dev Containers: Reopen in Container`.
+
+{% if with_node %}
+Node.js tooling is installed and managed with `nvm` inside the devcontainer. The selected default version is `{{ node_version }}`. This adds Node and pnpm to the environment, but it does not scaffold a frontend app.
+
+```sh
+nvm current
+pnpm --version
+```
+{% endif %}
+
+To preview the docs locally, run:
+
+```sh
+uv run mkdocs serve
+```
+{% endif %}
+
+To update this project from the template later, run:
+
+```sh
+uvx copier update
+```

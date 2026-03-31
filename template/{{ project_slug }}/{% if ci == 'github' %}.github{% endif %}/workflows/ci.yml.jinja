@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "{{ python_version }}"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+{% if stack_choice == "fullstack" and with_node %}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "{{ node_version }}"
+
+      - name: Enable pnpm
+        run: corepack enable
+{% endif %}
+
+{% if stack_choice == "fullstack" %}
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest
+{% else %}
+      - name: Build docs site
+        run: uvx mkdocs build -f .config/mkdocs.yml
+{% endif %}

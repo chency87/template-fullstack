@@ -1,0 +1,32 @@
+# {{ project_name }}
+
+{{ project_description }}
+
+{% if stack_choice == "agents" %}
+## Development
+
+- Python version: `{{ python_version }}`
+- Stack: `ZeroClaw workspace`
+- CI: `{{ ci }}`
+- Docs config: `.config/mkdocs.yml`
+
+## Getting Started
+
+1. Open the project in VS Code.
+2. Reopen it in the dev container.
+3. Add your prompts, orchestration, and deployment assets under `workspace/`.
+4. Run `uvx mkdocs serve -f .config/mkdocs.yml` to preview the docs.
+{% else %}
+## Development
+
+- Python version: `{{ python_version }}`
+- Stack: `{{ stack_choice }}`
+- CI: `{{ ci }}`
+
+## Getting Started
+
+1. Open the project in VS Code.
+2. Reopen it in the dev container.
+3. Run `uv sync`.
+4. Run `uv run mkdocs serve` to preview the docs.
+{% endif %}

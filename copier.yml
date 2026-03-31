@@ -1,0 +1,105 @@
+_min_copier_version: "9.0.0"
+_subdirectory: template
+_answers_file: ".copier-answers.yml"
+
+project_name:
+  type: str
+  help: What is your project's name?
+  placeholder: "My Project"
+  validator: >-
+    {% if not project_name.strip() %}
+    Invalid project name
+    {% endif %}
+
+project_slug:
+  type: str
+  default: "{{ project_name | lower | replace(' ', '-') | replace(':', '') | replace('/', '-') }}"
+  validator: >-
+    {% if not project_slug.strip() %}
+    Invalid project slug
+    {% endif %}
+
+project_description:
+  type: str
+  help: What does your {{ project_slug }} do in one sentence?
+  placeholder: A {{ project_name }} that helps me ship work every day.
+  validator: >-
+    {% if not project_description.strip() %}
+    Invalid project description
+    {% endif %}
+
+stack_choice:
+  type: str
+  help: Which project template would you like to use?
+  choices:
+    "Fullstack (Python + optional Node)": fullstack
+    "Agent Deployment (ZeroClaw workspace)": agents
+  default: fullstack
+
+ci:
+  type: str
+  help: Which CI setup should your project use?
+  choices:
+    GitHub Actions: github
+    No CI starter: none
+  default: github
+
+python_version:
+  type: str
+  help: Which Python version should your project use?
+  default: "3.12"
+
+with_gpu:
+  type: bool
+  help: Enable GPU development environment (PyTorch image)?
+  default: false
+
+pytorch_cuda_tag:
+  type: str
+  help: "PyTorch CUDA image tag (for example: 2.4.1-cuda12.1-cudnn9-runtime)"
+  default: "2.4.1-cuda12.1-cudnn9-runtime"
+  when: "{{ with_gpu }}"
+
+with_node:
+  type: bool
+  help: Add Node.js and pnpm tooling to the fullstack devcontainer (does not scaffold a frontend app)?
+  default: false
+  when: "{{ stack_choice == 'fullstack' }}"
+
+node_version:
+  type: str
+  help: Which Node.js version should your project use?
+  default: "24"
+  when: "{{ stack_choice == 'fullstack' and with_node }}"
+
+nvm_version:
+  type: str
+  help: Which nvm version should your project use?
+  default: "0.40.3"
+  when: "{{ stack_choice == 'fullstack' and with_node }}"
+
+pnpm_version:
+  type: str
+  help: Which pnpm version should your project use?
+  default: "latest"
+  when: "{{ stack_choice == 'fullstack' and with_node }}"
+
+package_name:
+  when: false
+  default: "{{ project_slug | replace('-', '_') }}"
+
+workspace_dir:
+  when: false
+  default: "/workspaces/{{ project_slug }}"
+
+package_manager:
+  when: false
+  default: "{{ 'pnpm' if stack_choice == 'fullstack' and with_node else 'none' }}"
+
+base_python_image:
+  when: false
+  default: "{{ 'pytorch/pytorch:' ~ pytorch_cuda_tag if with_gpu else 'ghcr.io/astral-sh/uv:python' ~ python_version ~ '-trixie' }}"
+
+base_runtime_summary:
+  when: false
+  default: "{{ 'Python + GPU' if with_gpu else 'Python' }}{{ ' + Node.js' if stack_choice == 'fullstack' and with_node else '' }}"

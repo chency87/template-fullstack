@@ -1,0 +1,118 @@
+# syntax=docker/dockerfile:1
+{% if with_gpu %}
+FROM pytorch/pytorch:{{ pytorch_cuda_tag }} AS dev
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+{% else %}
+FROM ghcr.io/astral-sh/uv:python{{ python_version }}-trixie AS dev
+
+{% endif %}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH=$VIRTUAL_ENV/bin:$PATH
+ENV UV_PROJECT_ENVIRONMENT=$VIRTUAL_ENV
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+{% if with_gpu %}
+RUN --mount=type=cache,target=/var/cache/apt/ \
+    --mount=type=cache,target=/var/lib/apt/ \
+    apt-get update && \
+    apt-get install --no-install-recommends --yes \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      graphviz \
+      locales \
+      sqlite3 \
+      ssh \
+      sudo \
+      vim \
+      wget && \
+    groupadd --gid 1000 user && \
+    useradd --create-home --no-log-init --gid 1000 --uid 1000 --shell /usr/bin/bash user && \
+    mkdir -p /opt/venv && chown user:user /opt/venv && \
+    uv venv "${VIRTUAL_ENV}" && \
+    echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user && chmod 0440 /etc/sudoers.d/user
+{% else %}
+RUN --mount=type=cache,target=/var/cache/apt/ \
+    --mount=type=cache,target=/var/lib/apt/ \
+    apt-get update && \
+    apt-get install --no-install-recommends --yes \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      graphviz \
+      locales \
+      sqlite3 \
+      ssh \
+      sudo \
+      vim \
+      wget && \
+    groupadd --gid 1000 user && \
+    useradd --create-home --no-log-init --gid 1000 --uid 1000 --shell /usr/bin/bash user && \
+    mkdir -p /opt/venv && chown user:user /opt/venv && \
+    uv venv "${VIRTUAL_ENV}" && \
+    echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user && chmod 0440 /etc/sudoers.d/user
+{% endif %}
+
+RUN git config --system --add safe.directory '*'
+
+SHELL ["/bin/bash", "-c"]
+
+{% if with_node %}
+ARG NODE_VERSION="{{ node_version }}"
+ARG NVM_VERSION="{{ nvm_version }}"
+ARG PNPM_VERSION="{{ pnpm_version }}"
+ENV NVM_DIR=/usr/local/share/nvm
+
+RUN mkdir -p "${NVM_DIR}" && chown user:user "${NVM_DIR}"
+
+USER user
+
+RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash \
+    && source "${NVM_DIR}/nvm.sh" \
+    && nvm install "${NODE_VERSION}" \
+    && nvm alias default "${NODE_VERSION}" \
+    && nvm use default \
+    && corepack enable \
+    && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+USER root
+
+RUN source "${NVM_DIR}/nvm.sh" \
+    && nvm use default \
+    && NODE_BIN="${NVM_DIR}/versions/node/$(nvm version default)/bin" \
+    && ln -sf "${NODE_BIN}/node"     /usr/local/bin/node \
+    && ln -sf "${NODE_BIN}/npm"      /usr/local/bin/npm \
+    && ln -sf "${NODE_BIN}/npx"      /usr/local/bin/npx \
+    && ln -sf "${NODE_BIN}/corepack" /usr/local/bin/corepack \
+    && { [ -x "${NODE_BIN}/pnpm" ] && ln -sf "${NODE_BIN}/pnpm" /usr/local/bin/pnpm; true; } \
+    && { [ -x "${NODE_BIN}/pnpx" ] && ln -sf "${NODE_BIN}/pnpx" /usr/local/bin/pnpx; true; }
+{% endif %}
+
+USER user
+
+RUN mkdir -p "$HOME/.history" && \
+    echo 'export HISTFILE=$HOME/.history/.bash_history' >> "$HOME/.bashrc" && \
+    echo 'export HISTSIZE=10000'                        >> "$HOME/.bashrc" && \
+    echo 'export HISTFILESIZE=20000'                    >> "$HOME/.bashrc" && \
+    echo 'export HISTCONTROL=ignoredups:erasedups'      >> "$HOME/.bashrc" && \
+    echo 'shopt -s histappend'                          >> "$HOME/.bashrc" && \
+    echo 'PROMPT_COMMAND="history -a; history -c; history -r"' >> "$HOME/.bashrc" && \
+    echo '[[ $- == *i* ]] && bind "\e[A":history-search-backward' >> "$HOME/.bashrc" && \
+    echo '[[ $- == *i* ]] && bind "\e[B":history-search-forward'  >> "$HOME/.bashrc"{% if with_node %} && \
+    echo 'export NVM_DIR=/usr/local/share/nvm'                       >> "$HOME/.bashrc" && \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'          >> "$HOME/.bashrc" && \
+    echo '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"' >> "$HOME/.bashrc"{% endif %}
+
+SHELL ["/bin/bash", "-lc"]
+
+USER root
+RUN mkdir -p {{ workspace_dir }} && chown user:user {{ workspace_dir }}
+USER user
+WORKDIR {{ workspace_dir }}
+

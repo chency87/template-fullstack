@@ -1,0 +1,21 @@
+# Changes here are tracked so `copier update` can keep this project in sync.
+_src_path: "{{ _src_path }}"
+_commit: "{{ _commit }}"
+project_name: "{{ project_name }}"
+project_slug: "{{ project_slug }}"
+project_description: "{{ project_description }}"
+stack_choice: "{{ stack_choice }}"
+ci: "{{ ci }}"
+python_version: "{{ python_version }}"
+with_gpu: {{ with_gpu }}
+{% if with_gpu %}
+pytorch_cuda_tag: "{{ pytorch_cuda_tag }}"
+{% endif %}
+{% if stack_choice == "fullstack" %}
+with_node: {{ with_node }}
+{% if with_node %}
+node_version: "{{ node_version }}"
+nvm_version: "{{ nvm_version }}"
+pnpm_version: "{{ pnpm_version }}"
+{% endif %}
+{% endif %}

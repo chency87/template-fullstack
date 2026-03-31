@@ -1,0 +1,21 @@
+[project]
+name = "{{ project_slug }}"
+version = "0.1.0"
+description = "{{ project_description }}"
+readme = "README.md"
+requires-python = ">= {{ python_version }}"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "mkdocs>=1.6.0",
+  "mkdocs-material>=9.5.0",
+  "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
