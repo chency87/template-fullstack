@@ -74,13 +74,13 @@ You should have:
 Run:
 
 ```sh
-uvx copier copy https://github.com/<your-org-or-user>/template-fullstack path/to/output
+copier copy https://github.com/<your-org-or-user>/template-fullstack path/to/output
 ```
 
 Or generate from the local checkout:
 
 ```sh
-uvx copier copy . path/to/output
+copier copy . path/to/output
 ```
 
 Copier will ask for:
@@ -106,7 +106,7 @@ After generation:
 Inside a generated repo:
 
 ```sh
-uvx copier update
+copier update
 ```
 
 This works because the generated project stores its template metadata in `.copier-answers.yml`.
