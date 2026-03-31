@@ -55,8 +55,6 @@ run_case() {
   test -f "${out_dir}/.copier-answers.yml"
   test -f "${out_dir}/docs/index.md"
   grep -q '`ci`: `' "${out_dir}/README.md"
-  grep -q 'ghcr.io/devcontainers-extra/features/apt-get-packages:1' "${out_dir}/.devcontainer/devcontainer.json"
-  grep -q '"packages": "starship"' "${out_dir}/.devcontainer/devcontainer.json"
   grep -q "_src_path: \"${ROOT_DIR}\"" "${out_dir}/.copier-answers.yml"
   grep -q 'python_version: "3.12"' "${out_dir}/.copier-answers.yml"
 
@@ -81,6 +79,7 @@ run_case() {
     grep -q 'requires = \["uv_build>=0.7.19,<0.8.0"\]' "${out_dir}/pyproject.toml"
     grep -q '"mkdocs>=1.6.0"' "${out_dir}/pyproject.toml"
     grep -q 'theme:' "${out_dir}/mkdocs.yml"
+    grep -q 'starship' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'Run `uv sync`.' "${out_dir}/docs/index.md"
     grep -q 'Run `uv run mkdocs serve` to preview the docs.' "${out_dir}/docs/index.md"
     if [[ -d "${out_dir}/.config" || -d "${out_dir}/workspace" ]]; then
@@ -155,6 +154,7 @@ run_case() {
     grep -q 'COPY --from=uv-binary /uv /uvx /usr/local/bin/' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'sudo' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'starship' "${out_dir}/.devcontainer/Dockerfile"
     grep -q "user ALL=(root) NOPASSWD:ALL" "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'USER user:user' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ENTRYPOINT \["zeroclaw"\]' "${out_dir}/.devcontainer/Dockerfile"

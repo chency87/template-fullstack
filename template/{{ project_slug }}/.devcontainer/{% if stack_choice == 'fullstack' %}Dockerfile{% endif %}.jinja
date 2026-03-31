@@ -27,6 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       graphviz \
       locales \
       sqlite3 \
+      starship \
       ssh \
       sudo \
       vim \
@@ -48,6 +49,7 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       graphviz \
       locales \
       sqlite3 \
+      starship \
       ssh \
       sudo \
       vim \
@@ -115,4 +117,3 @@ USER root
 RUN mkdir -p {{ workspace_dir }} && chown user:user {{ workspace_dir }}
 USER user
 WORKDIR {{ workspace_dir }}
-
