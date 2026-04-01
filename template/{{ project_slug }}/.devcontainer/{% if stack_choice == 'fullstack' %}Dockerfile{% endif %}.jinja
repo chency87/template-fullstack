@@ -37,6 +37,7 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       ssh \
       sudo \
       vim \
+      tmux \
       wget && \
     groupadd --gid $USER_GID user && \
     useradd --create-home --no-log-init --gid $USER_GID --uid $USER_UID --shell /usr/bin/bash user && \
@@ -58,6 +59,7 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       ssh \
       sudo \
       vim \
+      tmux \
       wget && \
     groupadd --gid $USER_GID user && \
     useradd --create-home --no-log-init --gid $USER_GID --uid $USER_UID --shell /usr/bin/bash user && \
