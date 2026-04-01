@@ -71,6 +71,7 @@ run_case() {
     test -f "${out_dir}/tests/test_smoke.py"
     grep -q "\"workspaceFolder\": \"/workspaces/my-project\"" "${out_dir}/.devcontainer/devcontainer.json"
     grep -q "\"remoteUser\": \"user\"" "${out_dir}/.devcontainer/devcontainer.json"
+    grep -q "\"updateRemoteUserUID\": false" "${out_dir}/.devcontainer/devcontainer.json"
     grep -q 'working_dir: /workspaces/my-project' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q '\- \.\.:/workspaces/my-project:cached' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q 'HOME=/home/user' "${out_dir}/.devcontainer/docker-compose.yml"
@@ -92,6 +93,7 @@ run_case() {
     test -f "${out_dir}/workspace/README.md"
     grep -q "\"workspaceFolder\": \"/zeroclaw-data\"" "${out_dir}/.devcontainer/devcontainer.json"
     grep -q "\"remoteUser\": \"user\"" "${out_dir}/.devcontainer/devcontainer.json"
+    grep -q "\"updateRemoteUserUID\": false" "${out_dir}/.devcontainer/devcontainer.json"
     grep -q 'ZEROCLAW_WORKSPACE' "${out_dir}/.devcontainer/devcontainer.json"
     grep -q 'working_dir: /zeroclaw-data' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q '\- \.\.:/zeroclaw-data:cached' "${out_dir}/.devcontainer/docker-compose.yml"
@@ -127,21 +129,29 @@ run_case() {
     else
       grep -q 'FROM ghcr.io/astral-sh/uv:python3.12-trixie' "${out_dir}/.devcontainer/Dockerfile"
     fi
+    grep -q 'USER user' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
 
     if [[ "${with_node}" == "true" ]]; then
       grep -q 'ARG NODE_VERSION="24"' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'ARG NVM_VERSION="0.40.3"' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'ARG PNPM_VERSION="latest"' "${out_dir}/.devcontainer/Dockerfile"
-      grep -q 'ENV NVM_DIR=/usr/local/share/nvm' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'ENV NVM_DIR=/home/user/.nvm' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'ENV NVM_SYMLINK_CURRENT=true' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh' "${out_dir}/.devcontainer/Dockerfile"
-      grep -q 'nvm install "${NODE_VERSION}"' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'nvm install "$NODE_VERSION"' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'corepack prepare pnpm@${PNPM_VERSION} --activate' "${out_dir}/.devcontainer/Dockerfile"
+      grep -Fq 'if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'export PATH=$VIRTUAL_ENV/bin:$NVM_DIR/current/bin:$PATH' "${out_dir}/.devcontainer/Dockerfile"
+      assert_not_contains '/etc/profile.d/node.sh' "${out_dir}/.devcontainer/Dockerfile"
       grep -q '`nvm_version`: `0.40.3`' "${out_dir}/README.md"
       grep -q '`pnpm_version`: `latest`' "${out_dir}/README.md"
       grep -q '`package_manager`: `pnpm`' "${out_dir}/README.md"
       grep -q 'nvm_version: "0.40.3"' "${out_dir}/.copier-answers.yml"
       grep -q 'pnpm_version: "latest"' "${out_dir}/.copier-answers.yml"
       grep -q 'This adds Node and pnpm to the environment, but it does not scaffold a frontend app.' "${out_dir}/README.md"
+      assert_not_contains '/usr/local/bin/node' "${out_dir}/.devcontainer/Dockerfile"
+      assert_not_contains 'PNPM_HOME=/home/user/.local/share/pnpm' "${out_dir}/.devcontainer/docker-compose.yml"
     else
       if rg -q 'ARG NODE_VERSION=' "${out_dir}/.devcontainer/Dockerfile"; then
         echo "Unexpected Node install config in ${name}" >&2

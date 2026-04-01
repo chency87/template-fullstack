@@ -41,10 +41,6 @@ services:
       {% else %}
       - HOME=/home/user
       - UV_CACHE_DIR=/home/user/.cache/uv
-      {% if stack_choice == "fullstack" and with_node %}
-      - PNPM_HOME=/home/user/.local/share/pnpm
-      - PATH=/home/user/.local/share/pnpm:$PATH
-      {% endif %}
       {% endif %}
 
     command: sleep infinity
