@@ -8,6 +8,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 FROM ghcr.io/astral-sh/uv:python{{ python_version }}-trixie AS dev
 
 {% endif %}
+
+ARG USERNAME=user
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH=$VIRTUAL_ENV/bin:$PATH
@@ -32,8 +38,8 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       sudo \
       vim \
       wget && \
-    groupadd --gid 1000 user && \
-    useradd --create-home --no-log-init --gid 1000 --uid 1000 --shell /usr/bin/bash user && \
+    groupadd --gid $USER_GID user && \
+    useradd --create-home --no-log-init --gid $USER_GID --uid $USER_UID --shell /usr/bin/bash user && \
     mkdir -p /opt/venv && chown user:user /opt/venv && \
     echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user && chmod 0440 /etc/sudoers.d/user
 {% else %}
@@ -53,8 +59,8 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       sudo \
       vim \
       wget && \
-    groupadd --gid 1000 user && \
-    useradd --create-home --no-log-init --gid 1000 --uid 1000 --shell /usr/bin/bash user && \
+    groupadd --gid $USER_GID user && \
+    useradd --create-home --no-log-init --gid $USER_GID --uid $USER_UID --shell /usr/bin/bash user && \
     mkdir -p /opt/venv && chown user:user /opt/venv && \
     echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user && chmod 0440 /etc/sudoers.d/user
 {% endif %}

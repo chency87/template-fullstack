@@ -4,6 +4,9 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+      args:
+        USER_UID: ${USER_UID}
+        USER_GID: ${USER_GID}
 
     container_name: {{ project_slug }}
     init: true
@@ -32,7 +35,7 @@ services:
     {% endif %}
 
     # run as the same user defined in Dockerfile
-    user: "1000:1000"
+    user: "${USER_UID}:${USER_GID}"
 
     environment:
       {% if stack_choice == "agents" %}
@@ -63,7 +66,10 @@ services:
 
 volumes:
   dev_history:
+    name: dev_history
   uv_cache:
+    name: uv_cache
   {% if stack_choice == 'fullstack' and with_gpu %}
   huggingface:
+    name: huggingface_cache
   {% endif %}

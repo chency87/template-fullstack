@@ -2,6 +2,7 @@
   "name": "{{ project_name }}",
   "dockerComposeFile": "docker-compose.yml",
   "service": "dev",
+  "initializeCommand": "sh -c 'printf \"USER_UID=%s\\nUSER_GID=%s\\n\" \"$(id -u)\" \"$(id -g)\" > .devcontainer/.env'",
 {% if stack_choice == "agents" %}
   "workspaceFolder": "/zeroclaw-data",
   "remoteEnv": {
@@ -32,7 +33,5 @@
       }
     }
   },
-  "remoteUser": "user",
-  "updateRemoteUserUID": false
-
+  "remoteUser": "user"
 }
