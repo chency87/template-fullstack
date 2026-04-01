@@ -104,7 +104,3 @@ base_runtime_summary:
   when: false
   default: "{{ 'Python + GPU' if with_gpu else 'Python' }}{{ ' + Node.js' if stack_choice == 'fullstack' and with_node else '' }}"
 
-_tasks:
-  - git init
-  - git add .
-  
