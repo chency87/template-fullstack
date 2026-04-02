@@ -1,22 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
-# =============================================================================
-# ZeroClaw development + deployment image
-# - Devcontainer-friendly
-# - uv-first Python workflow
-# - Ships the official zeroclaw binary from a pinned GHCR tag
-# =============================================================================
-
 ARG ZEROCLAW_VERSION=latest
-
-FROM ghcr.io/astral-sh/uv:latest AS uv-binary
-
-FROM ghcr.io/zeroclaw-labs/zeroclaw:${ZEROCLAW_VERSION} AS zeroclaw-binary
 
 FROM debian:bookworm-slim AS tools-builder
 
 ARG HUGO_VERSION=0.158.0
-ARG NODE_VERSION=24.x
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -26,19 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION}" | bash - \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN npm install -g --prefix /opt/agent-browser agent-browser \
-    && npm install -g --prefix /opt/opencode opencode-ai
-
-RUN corepack enable \
-    && corepack prepare pnpm@latest --activate \
-    && install -d /opt/pnpm/bin \
-    && cp "$(command -v pnpm)" /opt/pnpm/bin/pnpm
 
 RUN curl -fsSL \
     "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz" \
@@ -82,54 +57,93 @@ RUN curl -fsSL \
     && chmod +x /usr/local/bin/yq \
     && yq --version
 
+{% if with_gpu %}
+FROM pytorch/pytorch:{{ pytorch_cuda_tag }} AS runtime
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+{% else %}
 FROM debian:bookworm-slim AS runtime
 
-ARG NODE_VERSION=24.x
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+{% endif %}
+
+ARG USERNAME=user
+ARG USER_UID=1000
+ARG USER_GID=1000
 ARG ZEROCLAW_VERSION=latest
+ARG PYTHON_VERSION="{{ python_version }}"
+ARG NODE_VERSION="{{ node_version }}"
+ARG NVM_VERSION="{{ nvm_version }}"
+ARG PNPM_VERSION="{{ pnpm_version }}"
+ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
+ENV ZEROCLAW_WORKSPACE=/zeroclaw-data/workspace
+ENV ZEROCLAW_ALLOW_PUBLIC_BIND=true
+ENV SHELL=/bin/bash
+ENV VIRTUAL_ENV=/opt/venv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+ENV UV_CACHE_DIR=/home/user/.cache/uv
+ENV UV_TOOL_BIN_DIR=/home/user/.local/bin
+ENV CARGO_HOME=/home/user/.cargo
+ENV NVM_DIR=/home/user/.nvm
+ENV NVM_SYMLINK_CURRENT=true
+ENV PIP_USER=false
+ENV PYTHONUSERBASE=/home/user/.local
+ENV CHROME_PATH=/usr/bin/chromium
+ENV CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage --headless"
 ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$NVM_DIR/current/bin:/home/user/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
-    make \
-    gcc \
-    g++ \
-    python3 \
-    python3-pip \
-    python3-venv \
-    jq \
-    tree \
-    sqlite3 \
-    starship \
-    bat \
-    sudo \
-    zip \
-    unzip \
-    chromium \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    xvfb \
-    && rm -rf /var/lib/apt/lists/*
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
+    && chmod +x /usr/sbin/policy-rc.d
 
-RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION}" | bash - \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt/ \
+    --mount=type=cache,target=/var/lib/apt/ \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      git \
+      jq \
+      tree \
+      sqlite3 \
+      passwd \
+      bat \
+      sudo \
+      zip \
+      unzip \
+      chromium \
+      libnss3 \
+      libatk-bridge2.0-0 \
+      libgtk-3-0 \
+      libx11-xcb1 \
+      libxcomposite1 \
+      libxdamage1 \
+      libxrandr2 \
+      libgbm1 \
+      libasound2 \
+      xvfb \
+      gcc \
+      g++ \
+      make \
+    && groupadd --gid $USER_GID $USERNAME \
+    && useradd \
+      --uid $USER_UID \
+      --gid $USER_GID \
+      --home-dir $HOME \
+      --shell /bin/bash \
+      --no-create-home \
+      --comment "ZeroClaw agent user" \
+      $USERNAME \
+    && mkdir -p $VIRTUAL_ENV \
+    && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
 
-COPY --from=uv-binary /uv /uvx /usr/local/bin/
-COPY --from=tools-builder /opt/agent-browser /opt/agent-browser
-COPY --from=tools-builder /opt/opencode /opt/opencode
-COPY --from=tools-builder /opt/pnpm /opt/pnpm
+RUN curl -sS https://starship.rs/install.sh | sh -s -- -y -b /usr/local/bin
+
 COPY --from=tools-builder /usr/bin/gh /usr/local/bin/gh
 COPY --from=tools-builder /usr/local/bin/hugo /usr/local/bin/hugo
 COPY --from=tools-builder /usr/local/bin/rg /usr/local/bin/rg
@@ -137,32 +151,35 @@ COPY --from=tools-builder /usr/local/bin/fd /usr/local/bin/fd
 COPY --from=tools-builder /usr/local/bin/just /usr/local/bin/just
 COPY --from=tools-builder /usr/local/bin/tokei /usr/local/bin/tokei
 COPY --from=tools-builder /usr/local/bin/yq /usr/local/bin/yq
-COPY --from=zeroclaw-binary /usr/local/bin/zeroclaw /usr/local/bin/zeroclaw
 
-RUN groupadd --gid 1000 user \
-    && useradd \
-        --uid 1000 \
-        --gid 1000 \
-        --home-dir /zeroclaw-data \
-        --shell /bin/bash \
-        --no-create-home \
-        --comment "ZeroClaw agent user" \
-        user \
-    && echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user \
-    && chmod 0440 /etc/sudoers.d/user
+RUN case "${TARGETARCH}" in \
+      amd64) zeroclaw_target="x86_64-unknown-linux-gnu" ;; \
+      arm64) zeroclaw_target="aarch64-unknown-linux-gnu" ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && case "${ZEROCLAW_VERSION}" in \
+      latest) zeroclaw_url="https://github.com/zeroclaw-labs/zeroclaw/releases/latest/download/zeroclaw-${zeroclaw_target}.tar.gz" ;; \
+      v*) zeroclaw_url="https://github.com/zeroclaw-labs/zeroclaw/releases/download/${ZEROCLAW_VERSION}/zeroclaw-${zeroclaw_target}.tar.gz" ;; \
+      *) zeroclaw_url="https://github.com/zeroclaw-labs/zeroclaw/releases/download/v${ZEROCLAW_VERSION}/zeroclaw-${zeroclaw_target}.tar.gz" ;; \
+    esac \
+    && tmp_dir="$(mktemp -d)" \
+    && curl -fsSL "${zeroclaw_url}" -o "${tmp_dir}/zeroclaw.tar.gz" \
+    && tar -xzf "${tmp_dir}/zeroclaw.tar.gz" -C "${tmp_dir}" \
+    && install -m 0755 "${tmp_dir}/zeroclaw" /usr/local/bin/zeroclaw \
+    && rm -rf "${tmp_dir}"
 
 RUN mkdir -p \
-    /zeroclaw-data/.zeroclaw \
-    /zeroclaw-data/workspace \
-    /zeroclaw-data/.cargo/bin \
-    /zeroclaw-data/.cargo/registry \
-    /zeroclaw-data/.npm/bin \
-    /zeroclaw-data/.npm/lib \
-    /zeroclaw-data/.local \
-    /zeroclaw-data/.cache/uv \
-    /zeroclaw-data/.config \
-    /opt/venv \
-    && chown -R user:user /zeroclaw-data /opt/venv
+    $HOME/.zeroclaw \
+    $ZEROCLAW_WORKSPACE \
+    $CARGO_HOME/bin \
+    $CARGO_HOME/registry \
+    $UV_TOOL_BIN_DIR \
+    $HOME/.cache/uv \
+    $HOME/.config \
+    $HOME/.history \
+    $HOME/.local/share \
+    $NVM_DIR \
+    && chown -R $USERNAME:$USERNAME $HOME $VIRTUAL_ENV
 
 RUN ln -sf /usr/bin/batcat /usr/local/bin/bat
 
@@ -171,32 +188,41 @@ RUN git config --system user.email "agent@zeroclaw.local" \
     && git config --system init.defaultBranch main \
     && git config --system safe.directory '*'
 
-ENV ZEROCLAW_WORKSPACE=/zeroclaw-data/workspace
-ENV ZEROCLAW_ALLOW_PUBLIC_BIND=true
-ENV HOME=/zeroclaw-data
-ENV SHELL=/bin/bash
-ENV VIRTUAL_ENV=/opt/venv
-ENV UV_PROJECT_ENVIRONMENT=/opt/venv
-ENV UV_CACHE_DIR=/zeroclaw-data/.cache/uv
-ENV UV_TOOL_BIN_DIR=/zeroclaw-data/.local/bin
-ENV CARGO_HOME=/zeroclaw-data/.cargo
-ENV NPM_CONFIG_PREFIX=/zeroclaw-data/.npm
-ENV PIP_USER=false
-ENV PYTHONUSERBASE=/zeroclaw-data/.local
-ENV CHROME_PATH=/usr/bin/chromium
-ENV CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage --headless"
-ENV PATH="/opt/venv/bin:/opt/agent-browser/bin:/opt/pnpm/bin:/opt/opencode/bin:/zeroclaw-data/.cargo/bin:/zeroclaw-data/.npm/bin:/zeroclaw-data/.local/bin:/usr/local/bin:/usr/bin:/bin"
+RUN printf 'export PATH="%s:$PATH"\n' "$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$NVM_DIR/current/bin" > /etc/profile.d/devcontainer-path.sh
 
-USER user:user
+SHELL ["/bin/bash", "-c"]
 
-RUN uv venv "${VIRTUAL_ENV}"
+USER $USERNAME
 
-WORKDIR /zeroclaw-data
+RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
+
+RUN uv venv --python "${PYTHON_VERSION}" "${VIRTUAL_ENV}"
+
+RUN mkdir -p "$NVM_DIR" \
+    && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash \
+    && source "$NVM_DIR/nvm.sh" \
+    && nvm install "$NODE_VERSION" \
+    && nvm alias default "$NODE_VERSION" \
+    && nvm use default \
+    && corepack enable \
+    && corepack prepare pnpm@${PNPM_VERSION} --activate \
+    && npm install -g agent-browser opencode-ai
+
+RUN echo 'export HISTFILE=$HOME/.history/.bash_history' >> "$HOME/.bashrc" \
+    && echo 'export HISTSIZE=10000' >> "$HOME/.bashrc" \
+    && echo 'export HISTFILESIZE=20000' >> "$HOME/.bashrc" \
+    && echo 'export HISTCONTROL=ignoredups:erasedups' >> "$HOME/.bashrc" \
+    && echo 'shopt -s histappend' >> "$HOME/.bashrc" \
+    && echo 'PROMPT_COMMAND="history -a; history -c; history -r"' >> "$HOME/.bashrc" \
+    && echo 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$NVM_DIR/current/bin:$PATH' >> "$HOME/.bashrc" \
+    && echo 'export NVM_DIR=/home/user/.nvm' >> "$HOME/.bashrc" \
+    && echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> "$HOME/.bashrc" \
+    && echo '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"' >> "$HOME/.bashrc" \
+    && echo 'if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi' > "$HOME/.bash_profile"
+
+SHELL ["/bin/bash", "-lc"]
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=20s \
     CMD ["zeroclaw", "status"]
-
-ENTRYPOINT ["zeroclaw"]
-CMD ["daemon"]

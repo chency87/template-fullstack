@@ -9,6 +9,11 @@
 - `runtime`: `ZeroClaw workspace{{ ' + GPU runtime' if with_gpu else '' }}`
 - `python_version`: `{{ python_version }}`
 - `base_image`: `{{ base_python_image }}`
+- `node_version`: `{{ node_version }}`
+- `node_manager`: `nvm`
+- `nvm_version`: `{{ nvm_version }}`
+- `pnpm_version`: `{{ pnpm_version }}`
+- `package_manager`: `{{ package_manager }}`
 {% if with_gpu %}
 - `pytorch_cuda_tag`: `{{ pytorch_cuda_tag }}`
 {% endif %}
@@ -25,6 +30,8 @@
 Open this folder in VS Code and run `Dev Containers: Reopen in Container`.
 
 This template creates a ZeroClaw-oriented deployment workspace. It does not create a Python package scaffold.
+
+Node.js tooling is installed and managed with `nvm` inside the devcontainer. The selected default version is `{{ node_version }}`.
 
 To preview the docs locally, run:
 

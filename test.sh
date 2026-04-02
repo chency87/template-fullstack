@@ -97,9 +97,9 @@ run_case() {
     grep -q 'ZEROCLAW_WORKSPACE' "${out_dir}/.devcontainer/devcontainer.json"
     grep -q 'working_dir: /zeroclaw-data' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q '\- \.\.:/zeroclaw-data:cached' "${out_dir}/.devcontainer/docker-compose.yml"
-    grep -q '\- dev_history:/zeroclaw-data/.history' "${out_dir}/.devcontainer/docker-compose.yml"
-    grep -q 'HOME=/zeroclaw-data' "${out_dir}/.devcontainer/docker-compose.yml"
-    grep -q 'UV_CACHE_DIR=/zeroclaw-data/.cache/uv' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q '\- dev_history:/home/user/.history' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q 'HOME=/home/user' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q 'UV_CACHE_DIR=/home/user/.cache/uv' "${out_dir}/.devcontainer/docker-compose.yml"
     if [[ -f "${out_dir}/pyproject.toml" || -d "${out_dir}/src" || -d "${out_dir}/tests" ]]; then
       echo "Unexpected fullstack package layout in ${name}" >&2
       exit 1
@@ -166,15 +166,29 @@ run_case() {
     fi
   else
     grep -q 'ARG ZEROCLAW_VERSION=latest' "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'FROM ghcr.io/zeroclaw-labs/zeroclaw:${ZEROCLAW_VERSION} AS zeroclaw-binary' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'COPY --from=uv-binary /uv /uvx /usr/local/bin/' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ARG NODE_VERSION="24"' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ARG NVM_VERSION="0.40.3"' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ARG PNPM_VERSION="latest"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'ENV UV_TOOL_BIN_DIR=/zeroclaw-data/.local/bin' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV HOME=/home/user' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV UV_TOOL_BIN_DIR=/home/user/.local/bin' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV NVM_DIR=/home/user/.nvm' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'corepack prepare pnpm@${PNPM_VERSION} --activate' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'npm install -g agent-browser opencode-ai' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'releases/latest/download/zeroclaw-${zeroclaw_target}.tar.gz' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'sudo' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'starship' "${out_dir}/.devcontainer/Dockerfile"
     grep -q "user ALL=(root) NOPASSWD:ALL" "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'USER user:user' "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'ENTRYPOINT \["zeroclaw"\]' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'USER $USERNAME' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q '`node_manager`: `nvm`' "${out_dir}/README.md"
+    grep -q '`pnpm_version`: `latest`' "${out_dir}/README.md"
+    grep -q 'Node.js tooling is installed and managed with `nvm` inside the devcontainer.' "${out_dir}/README.md"
+    grep -q 'node_version: "24"' "${out_dir}/.copier-answers.yml"
+    assert_not_contains 'FROM ghcr.io/zeroclaw-labs/zeroclaw:${ZEROCLAW_VERSION} AS zeroclaw-binary' "${out_dir}/.devcontainer/Dockerfile"
+    assert_not_contains 'ENTRYPOINT ["zeroclaw"]' "${out_dir}/.devcontainer/Dockerfile"
+    assert_not_contains 'CMD ["daemon"]' "${out_dir}/.devcontainer/Dockerfile"
   fi
 
   if [[ "${ci}" == "github" ]]; then

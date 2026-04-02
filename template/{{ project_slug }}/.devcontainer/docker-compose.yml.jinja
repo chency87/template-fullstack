@@ -20,8 +20,8 @@ services:
     {% if stack_choice == "agents" %}
     volumes:
       - ..:/zeroclaw-data:cached
-      - dev_history:/zeroclaw-data/.history
-      - uv_cache:/zeroclaw-data/.cache/uv
+      - dev_history:/home/user/.history
+      - uv_cache:/home/user/.cache/uv
     {% else %}
     volumes:
       - ..:{{ workspace_dir }}:cached
@@ -39,8 +39,8 @@ services:
 
     environment:
       {% if stack_choice == "agents" %}
-      - HOME=/zeroclaw-data
-      - UV_CACHE_DIR=/zeroclaw-data/.cache/uv
+      - HOME=/home/user
+      - UV_CACHE_DIR=/home/user/.cache/uv
       {% else %}
       - HOME=/home/user
       - UV_CACHE_DIR=/home/user/.cache/uv

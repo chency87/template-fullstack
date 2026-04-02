@@ -119,4 +119,3 @@ SHELL ["/bin/bash", "-lc"]
 USER root
 RUN mkdir -p {{ workspace_dir }} && chown user:user {{ workspace_dir }}
 USER user
-WORKDIR {{ workspace_dir }}
