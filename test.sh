@@ -130,7 +130,13 @@ run_case() {
       grep -q 'FROM ghcr.io/astral-sh/uv:python3.12-trixie' "${out_dir}/.devcontainer/Dockerfile"
     fi
     grep -q 'USER user' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV HOME=/home/user' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV UV_TOOL_BIN_DIR=/home/user/.local/bin' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'RUN printf '\''export PATH="%s:$PATH"\\n'\'' "$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR" > /etc/profile.d/devcontainer-path.sh' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH' "${out_dir}/.devcontainer/Dockerfile"
 
     if [[ "${with_node}" == "true" ]]; then
       grep -q 'ARG NODE_VERSION="24"' "${out_dir}/.devcontainer/Dockerfile"
@@ -142,7 +148,7 @@ run_case() {
       grep -q 'nvm install "$NODE_VERSION"' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'corepack prepare pnpm@${PNPM_VERSION} --activate' "${out_dir}/.devcontainer/Dockerfile"
       grep -Fq 'if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi' "${out_dir}/.devcontainer/Dockerfile"
-      grep -q 'export PATH=$VIRTUAL_ENV/bin:$NVM_DIR/current/bin:$PATH' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$NVM_DIR/current/bin:$PATH' "${out_dir}/.devcontainer/Dockerfile"
       assert_not_contains '/etc/profile.d/node.sh' "${out_dir}/.devcontainer/Dockerfile"
       grep -q '`nvm_version`: `0.40.3`' "${out_dir}/README.md"
       grep -q '`pnpm_version`: `latest`' "${out_dir}/README.md"
@@ -163,6 +169,7 @@ run_case() {
     grep -q 'FROM ghcr.io/zeroclaw-labs/zeroclaw:${ZEROCLAW_VERSION} AS zeroclaw-binary' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'COPY --from=uv-binary /uv /uvx /usr/local/bin/' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV UV_TOOL_BIN_DIR=/zeroclaw-data/.local/bin' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'sudo' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'starship' "${out_dir}/.devcontainer/Dockerfile"
     grep -q "user ALL=(root) NOPASSWD:ALL" "${out_dir}/.devcontainer/Dockerfile"

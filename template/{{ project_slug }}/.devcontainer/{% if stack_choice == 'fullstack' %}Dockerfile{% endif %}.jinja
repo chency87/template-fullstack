@@ -15,8 +15,10 @@ ARG USER_GID=1000
 
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
 ENV VIRTUAL_ENV=/opt/venv
-ENV PATH=$VIRTUAL_ENV/bin:$PATH
+ENV UV_TOOL_BIN_DIR=/home/user/.local/bin
+ENV PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH
 ENV UV_PROJECT_ENVIRONMENT=$VIRTUAL_ENV
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -68,10 +70,13 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
 {% endif %}
 
 RUN git config --system --add safe.directory '*'
+RUN printf 'export PATH="%s:$PATH"\n' "$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR" > /etc/profile.d/devcontainer-path.sh
 
 SHELL ["/bin/bash", "-c"]
 
 USER user
+
+RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
 
 RUN uv venv "${VIRTUAL_ENV}"
 
@@ -100,11 +105,12 @@ RUN mkdir -p "$HOME/.history" && \
     echo 'export HISTCONTROL=ignoredups:erasedups'      >> "$HOME/.bashrc" && \
     echo 'shopt -s histappend'                          >> "$HOME/.bashrc" && \
     echo 'PROMPT_COMMAND="history -a; history -c; history -r"' >> "$HOME/.bashrc" && \
+    echo 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH' >> "$HOME/.bashrc" && \
     echo '[[ $- == *i* ]] && bind "\e[A":history-search-backward' >> "$HOME/.bashrc" && \
     echo '[[ $- == *i* ]] && bind "\e[B":history-search-forward'  >> "$HOME/.bashrc" && \
     echo 'if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi'  > "$HOME/.bash_profile"{% if with_node %} && \
     echo 'export NVM_DIR=/home/user/.nvm'                          >> "$HOME/.bashrc" && \
-    echo 'export PATH=$VIRTUAL_ENV/bin:$NVM_DIR/current/bin:$PATH' >> "$HOME/.bashrc" && \
+    echo 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$NVM_DIR/current/bin:$PATH' >> "$HOME/.bashrc" && \
     echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'          >> "$HOME/.bashrc" && \
     echo '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"' >> "$HOME/.bashrc"{% endif %}
 
