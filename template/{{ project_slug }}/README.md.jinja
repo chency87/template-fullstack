@@ -6,38 +6,34 @@
 ## Runtime
 
 - `ci`: `{{ ci }}`
-- `runtime`: `ZeroClaw workspace{{ ' + GPU runtime' if with_gpu else '' }}`
+- `runtime`: `ZeroClaw developer environment`
 - `python_version`: `{{ python_version }}`
 - `base_image`: `{{ base_python_image }}`
 - `node_version`: `{{ node_version }}`
 - `node_manager`: `nvm`
 - `nvm_version`: `{{ nvm_version }}`
+- `rust_toolchain`: `stable`
+- `rust_manager`: `rustup`
 - `pnpm_version`: `{{ pnpm_version }}`
 - `package_manager`: `{{ package_manager }}`
-{% if with_gpu %}
-- `pytorch_cuda_tag`: `{{ pytorch_cuda_tag }}`
-{% endif %}
 
 ## Layout
 
-- `.config/` contains project configuration, including MkDocs config.
 - `.devcontainer/` contains the development container setup.
-- `workspace/` contains your ZeroClaw prompts, orchestration, and deployment assets.
-- `docs/` contains the project documentation site content.
+- `src/` contains your ZeroClaw source code and supporting modules.
+- `zeroclaw-data/` contains your ZeroClaw runtime data, prompts, orchestration assets, and local state.
 
 ## Development
 
 Open this folder in VS Code and run `Dev Containers: Reopen in Container`.
 
-This template creates a ZeroClaw-oriented deployment workspace. It does not create a Python package scaffold.
+This template creates a ZeroClaw-oriented developer workspace. It does not create a Python package scaffold.
+
+Inside the container, `src/` is mounted as the active workspace and `zeroclaw-data/` is mounted separately for runtime data.
 
 Node.js tooling is installed and managed with `nvm` inside the devcontainer. The selected default version is `{{ node_version }}`.
 
-To preview the docs locally, run:
-
-```sh
-uvx mkdocs serve -f .config/mkdocs.yml
-```
+Rust tooling is installed and managed with `rustup` inside the devcontainer, with Cargo available for ZeroClaw development.
 
 {% else %}
 ## Runtime

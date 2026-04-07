@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1.7
 
-ARG ZEROCLAW_VERSION=latest
-
 FROM debian:bookworm-slim AS tools-builder
 
 ARG HUGO_VERSION=0.158.0
@@ -57,29 +55,21 @@ RUN curl -fsSL \
     && chmod +x /usr/local/bin/yq \
     && yq --version
 
-{% if with_gpu %}
-FROM pytorch/pytorch:{{ pytorch_cuda_tag }} AS runtime
-
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-{% else %}
 FROM debian:bookworm-slim AS runtime
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-{% endif %}
 
 ARG USERNAME=user
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG ZEROCLAW_VERSION=latest
 ARG PYTHON_VERSION="{{ python_version }}"
 ARG NODE_VERSION="{{ node_version }}"
 ARG NVM_VERSION="{{ nvm_version }}"
 ARG PNPM_VERSION="{{ pnpm_version }}"
-ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
-ENV ZEROCLAW_WORKSPACE=/zeroclaw-data/workspace
+ENV ZEROCLAW_WORKSPACE=/workspaces/zeroclaw/zeroclaw-data
 ENV ZEROCLAW_ALLOW_PUBLIC_BIND=true
 ENV SHELL=/bin/bash
 ENV VIRTUAL_ENV=/opt/venv
@@ -87,6 +77,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 ENV UV_CACHE_DIR=/home/user/.cache/uv
 ENV UV_TOOL_BIN_DIR=/home/user/.local/bin
 ENV CARGO_HOME=/home/user/.cargo
+ENV RUSTUP_HOME=/home/user/.rustup
 ENV NVM_DIR=/home/user/.nvm
 ENV NVM_SYMLINK_CURRENT=true
 ENV PIP_USER=false
@@ -107,9 +98,20 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       ca-certificates \
       curl \
       git \
+      openssh-client \
+      tmux \
+      less \
+      vim \
       jq \
       tree \
+      rsync \
+      procps \
+      iproute2 \
+      iputils-ping \
+      dnsutils \
       sqlite3 \
+      pkg-config \
+      libssl-dev \
       passwd \
       bat \
       sudo \
@@ -152,27 +154,12 @@ COPY --from=tools-builder /usr/local/bin/just /usr/local/bin/just
 COPY --from=tools-builder /usr/local/bin/tokei /usr/local/bin/tokei
 COPY --from=tools-builder /usr/local/bin/yq /usr/local/bin/yq
 
-RUN case "${TARGETARCH}" in \
-      amd64) zeroclaw_target="x86_64-unknown-linux-gnu" ;; \
-      arm64) zeroclaw_target="aarch64-unknown-linux-gnu" ;; \
-      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac \
-    && case "${ZEROCLAW_VERSION}" in \
-      latest) zeroclaw_url="https://github.com/zeroclaw-labs/zeroclaw/releases/latest/download/zeroclaw-${zeroclaw_target}.tar.gz" ;; \
-      v*) zeroclaw_url="https://github.com/zeroclaw-labs/zeroclaw/releases/download/${ZEROCLAW_VERSION}/zeroclaw-${zeroclaw_target}.tar.gz" ;; \
-      *) zeroclaw_url="https://github.com/zeroclaw-labs/zeroclaw/releases/download/v${ZEROCLAW_VERSION}/zeroclaw-${zeroclaw_target}.tar.gz" ;; \
-    esac \
-    && tmp_dir="$(mktemp -d)" \
-    && curl -fsSL "${zeroclaw_url}" -o "${tmp_dir}/zeroclaw.tar.gz" \
-    && tar -xzf "${tmp_dir}/zeroclaw.tar.gz" -C "${tmp_dir}" \
-    && install -m 0755 "${tmp_dir}/zeroclaw" /usr/local/bin/zeroclaw \
-    && rm -rf "${tmp_dir}"
-
 RUN mkdir -p \
     $HOME/.zeroclaw \
     $ZEROCLAW_WORKSPACE \
     $CARGO_HOME/bin \
     $CARGO_HOME/registry \
+    $RUSTUP_HOME \
     $UV_TOOL_BIN_DIR \
     $HOME/.cache/uv \
     $HOME/.config \
@@ -198,6 +185,12 @@ RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
 
 RUN uv venv --python "${PYTHON_VERSION}" "${VIRTUAL_ENV}"
 
+RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && source "$CARGO_HOME/env" \
+    && rustup default stable \
+    && cargo --version \
+    && rustc --version
+
 RUN mkdir -p "$NVM_DIR" \
     && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash \
     && source "$NVM_DIR/nvm.sh" \
@@ -214,15 +207,15 @@ RUN echo 'export HISTFILE=$HOME/.history/.bash_history' >> "$HOME/.bashrc" \
     && echo 'export HISTCONTROL=ignoredups:erasedups' >> "$HOME/.bashrc" \
     && echo 'shopt -s histappend' >> "$HOME/.bashrc" \
     && echo 'PROMPT_COMMAND="history -a; history -c; history -r"' >> "$HOME/.bashrc" \
+    && echo 'export CARGO_HOME=/home/user/.cargo' >> "$HOME/.bashrc" \
+    && echo 'export RUSTUP_HOME=/home/user/.rustup' >> "$HOME/.bashrc" \
     && echo 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$NVM_DIR/current/bin:$PATH' >> "$HOME/.bashrc" \
     && echo 'export NVM_DIR=/home/user/.nvm' >> "$HOME/.bashrc" \
     && echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> "$HOME/.bashrc" \
+    && echo '[ -s "$CARGO_HOME/env" ] && . "$CARGO_HOME/env"' >> "$HOME/.bashrc" \
     && echo '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"' >> "$HOME/.bashrc" \
     && echo 'if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi' > "$HOME/.bash_profile"
 
 SHELL ["/bin/bash", "-lc"]
 
 EXPOSE 3000
-
-HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=20s \
-    CMD ["zeroclaw", "status"]

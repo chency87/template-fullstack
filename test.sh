@@ -29,6 +29,8 @@ run_case() {
   local with_gpu="$3"
   local with_node="${4:-false}"
   local ci="${5:-github}"
+  local use_external_network="${6:-false}"
+  local external_network_name="${7:-shared-dev-network}"
 
   local target_dir="${TMP_DIR}/${name}"
   local out_dir="${target_dir}/my-project"
@@ -46,17 +48,34 @@ run_case() {
     --data with_node="${with_node}" \
     --data node_version="24" \
     --data nvm_version="0.40.3" \
-    --data pnpm_version="latest"
+    --data pnpm_version="latest" \
+    --data use_external_network="${use_external_network}" \
+    --data external_network_name="${external_network_name}"
 
   test -f "${out_dir}/README.md"
   test -f "${out_dir}/.devcontainer/devcontainer.json"
   test -f "${out_dir}/.devcontainer/Dockerfile"
   test -f "${out_dir}/.devcontainer/docker-compose.yml"
   test -f "${out_dir}/.copier-answers.yml"
-  test -f "${out_dir}/docs/index.md"
   grep -q '`ci`: `' "${out_dir}/README.md"
   grep -q "_src_path: \"${ROOT_DIR}\"" "${out_dir}/.copier-answers.yml"
   grep -q 'python_version: "3.12"' "${out_dir}/.copier-answers.yml"
+  local use_external_network_yaml
+  if [[ "${use_external_network}" == "true" ]]; then
+    use_external_network_yaml="True"
+  else
+    use_external_network_yaml="False"
+  fi
+  grep -q "use_external_network: ${use_external_network_yaml}" "${out_dir}/.copier-answers.yml"
+  if [[ "${use_external_network}" == "true" ]]; then
+    grep -q "external_network_name: \"${external_network_name}\"" "${out_dir}/.copier-answers.yml"
+    grep -q 'external-dev' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q 'external: true' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q "name: ${external_network_name}" "${out_dir}/.devcontainer/docker-compose.yml"
+  else
+    assert_not_contains 'external-dev' "${out_dir}/.devcontainer/docker-compose.yml"
+    assert_not_contains 'external: true' "${out_dir}/.devcontainer/docker-compose.yml"
+  fi
 
   if rg -n '\{\{|\{%|\{#' "${out_dir}"; then
     echo "Unresolved template markers found in ${name}" >&2
@@ -64,6 +83,7 @@ run_case() {
   fi
 
   if [[ "${stack_choice}" == "fullstack" ]]; then
+    test -f "${out_dir}/docs/index.md"
     test -f "${out_dir}/mkdocs.yml"
     test -f "${out_dir}/pyproject.toml"
     test -f "${out_dir}/src/my_project/__init__.py"
@@ -88,28 +108,26 @@ run_case() {
       exit 1
     fi
   else
-    test -f "${out_dir}/.config/mkdocs.yml"
-    test -f "${out_dir}/.config/agents.toml"
-    test -f "${out_dir}/workspace/README.md"
-    grep -q "\"workspaceFolder\": \"/zeroclaw-data\"" "${out_dir}/.devcontainer/devcontainer.json"
+    test -f "${out_dir}/src/README.md"
+    test -f "${out_dir}/zeroclaw-data/README.md"
+    grep -q "\"workspaceFolder\": \"/workspaces/zeroclaw/src\"" "${out_dir}/.devcontainer/devcontainer.json"
     grep -q "\"remoteUser\": \"user\"" "${out_dir}/.devcontainer/devcontainer.json"
     grep -q "\"updateRemoteUserUID\": false" "${out_dir}/.devcontainer/devcontainer.json"
-    grep -q 'ZEROCLAW_WORKSPACE' "${out_dir}/.devcontainer/devcontainer.json"
-    grep -q 'working_dir: /zeroclaw-data' "${out_dir}/.devcontainer/docker-compose.yml"
-    grep -q '\- \.\.:/zeroclaw-data:cached' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q '"/workspaces/zeroclaw/zeroclaw-data"' "${out_dir}/.devcontainer/devcontainer.json"
+    grep -q 'working_dir: /workspaces/zeroclaw/src' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q '\- \.\./src:/workspaces/zeroclaw/src:cached' "${out_dir}/.devcontainer/docker-compose.yml"
+    grep -q '\- \.\./zeroclaw-data:/workspaces/zeroclaw/zeroclaw-data:cached' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q '\- dev_history:/home/user/.history' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q 'HOME=/home/user' "${out_dir}/.devcontainer/docker-compose.yml"
     grep -q 'UV_CACHE_DIR=/home/user/.cache/uv' "${out_dir}/.devcontainer/docker-compose.yml"
-    if [[ -f "${out_dir}/pyproject.toml" || -d "${out_dir}/src" || -d "${out_dir}/tests" ]]; then
+    if [[ -f "${out_dir}/pyproject.toml" || -d "${out_dir}/tests" || -d "${out_dir}/.config" || -d "${out_dir}/docs" || -d "${out_dir}/workspace" ]]; then
       echo "Unexpected fullstack package layout in ${name}" >&2
       exit 1
     fi
-    grep -q 'docs_dir: ../docs' "${out_dir}/.config/mkdocs.yml"
-    grep -q 'Stack: `ZeroClaw workspace`' "${out_dir}/docs/index.md"
-    grep -q 'Docs config: `.config/mkdocs.yml`' "${out_dir}/docs/index.md"
-    grep -q 'uvx mkdocs serve -f .config/mkdocs.yml' "${out_dir}/docs/index.md"
-    grep -q 'ZeroClaw-oriented deployment workspace' "${out_dir}/README.md"
-    assert_not_contains 'uv sync' "${out_dir}/docs/index.md"
+    grep -q 'ZeroClaw-oriented developer workspace' "${out_dir}/README.md"
+    grep -q 'src/' "${out_dir}/README.md"
+    grep -q 'zeroclaw-data/' "${out_dir}/README.md"
+    grep -q 'mounted as the active workspace' "${out_dir}/README.md"
     assert_not_contains 'package-ecosystem: "uv"' "${out_dir}/.github/dependabot.yml"
   fi
 
@@ -165,30 +183,43 @@ run_case() {
       fi
     fi
   else
-    grep -q 'ARG ZEROCLAW_VERSION=latest' "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'COPY --from=uv-binary /uv /uvx /usr/local/bin/' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ARG NODE_VERSION="24"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ARG NVM_VERSION="0.40.3"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ARG PNPM_VERSION="latest"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ENV HOME=/home/user' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ENV UV_TOOL_BIN_DIR=/home/user/.local/bin' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV CARGO_HOME=/home/user/.cargo' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'ENV RUSTUP_HOME=/home/user/.rustup' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'ENV NVM_DIR=/home/user/.nvm' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'https://sh.rustup.rs' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'rustup default stable' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'cargo --version' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'corepack prepare pnpm@${PNPM_VERSION} --activate' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'npm install -g agent-browser opencode-ai' "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'releases/latest/download/zeroclaw-${zeroclaw_target}.tar.gz' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'sudo' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'openssh-client' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'tmux' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'pkg-config' "${out_dir}/.devcontainer/Dockerfile"
+    grep -q 'libssl-dev' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'starship' "${out_dir}/.devcontainer/Dockerfile"
     grep -q "user ALL=(root) NOPASSWD:ALL" "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'USER $USERNAME' "${out_dir}/.devcontainer/Dockerfile"
     grep -q '`node_manager`: `nvm`' "${out_dir}/README.md"
+    grep -q '`rust_toolchain`: `stable`' "${out_dir}/README.md"
+    grep -q '`rust_manager`: `rustup`' "${out_dir}/README.md"
     grep -q '`pnpm_version`: `latest`' "${out_dir}/README.md"
     grep -q 'Node.js tooling is installed and managed with `nvm` inside the devcontainer.' "${out_dir}/README.md"
+    grep -q 'Rust tooling is installed and managed with `rustup` inside the devcontainer' "${out_dir}/README.md"
     grep -q 'node_version: "24"' "${out_dir}/.copier-answers.yml"
+    assert_not_contains 'zeroclaw-${zeroclaw_target}.tar.gz' "${out_dir}/.devcontainer/Dockerfile"
+    assert_not_contains 'ARG ZEROCLAW_VERSION=' "${out_dir}/.devcontainer/Dockerfile"
     assert_not_contains 'FROM ghcr.io/zeroclaw-labs/zeroclaw:${ZEROCLAW_VERSION} AS zeroclaw-binary' "${out_dir}/.devcontainer/Dockerfile"
     assert_not_contains 'ENTRYPOINT ["zeroclaw"]' "${out_dir}/.devcontainer/Dockerfile"
     assert_not_contains 'CMD ["daemon"]' "${out_dir}/.devcontainer/Dockerfile"
+    assert_not_contains 'HEALTHCHECK' "${out_dir}/.devcontainer/Dockerfile"
   fi
 
   if [[ "${ci}" == "github" ]]; then
@@ -207,8 +238,7 @@ run_case() {
         echo "Unexpected Node CI setup in ${name}" >&2
         exit 1
       fi
-      grep -q 'uvx mkdocs build -f .config/mkdocs.yml' "${out_dir}/.github/workflows/ci.yml"
-      grep -q 'Build docs site' "${out_dir}/.github/workflows/ci.yml"
+      assert_not_contains 'mkdocs' "${out_dir}/.github/workflows/ci.yml"
     fi
   else
     if [[ -d "${out_dir}/.github" ]]; then
@@ -243,15 +273,12 @@ run_case "fullstack-cpu-node" "fullstack" "false" "true"
 run_case "fullstack-gpu" "fullstack" "true" "false"
 run_case "fullstack-gpu-node" "fullstack" "true" "true"
 run_case "agents-cpu" "agents" "false" "false"
-run_case "agents-gpu" "agents" "true" "false"
+run_case "agents-cpu-external-network" "agents" "false" "false" "github" "true" "shared-dev-network"
 run_case "fullstack-cpu-no-ci" "fullstack" "false" "false" "none"
 
 if command -v devcontainer >/dev/null 2>&1; then
   echo "==> Deep validation with devcontainer"
   devcontainer up --workspace-folder "${TMP_DIR}/fullstack-cpu/my-project" >/dev/null
-  if command -v nvidia-smi >/dev/null 2>&1; then
-    devcontainer up --workspace-folder "${TMP_DIR}/agents-gpu/my-project" >/dev/null
-  fi
 fi
 
 echo "All template smoke tests passed."

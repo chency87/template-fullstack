@@ -4,12 +4,12 @@
   "service": "dev",
   "initializeCommand": "sh -c 'printf \"USER_UID=%s\\nUSER_GID=%s\\n\" \"$(id -u)\" \"$(id -g)\" > .devcontainer/.env'",
 {% if stack_choice == "agents" %}
-  "workspaceFolder": "/zeroclaw-data",
+  "workspaceFolder": "/workspaces/zeroclaw/src",
   "remoteEnv": {
     "VIRTUAL_ENV": "/opt/venv",
     "PATH": "/opt/venv/bin:${containerEnv:PATH}",
     "UV_PROJECT_ENVIRONMENT": "/opt/venv",
-    "ZEROCLAW_WORKSPACE": "/zeroclaw-data/workspace"
+    "ZEROCLAW_WORKSPACE": "/workspaces/zeroclaw/zeroclaw-data"
   },
 {% else %}
   "workspaceFolder": "{{ workspace_dir }}",
@@ -33,5 +33,6 @@
       }
     }
   },
+  "updateRemoteUserUID": false,
   "remoteUser": "user"
 }

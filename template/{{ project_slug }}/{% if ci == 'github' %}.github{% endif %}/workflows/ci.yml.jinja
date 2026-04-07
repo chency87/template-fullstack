@@ -38,7 +38,4 @@ jobs:
 
       - name: Run tests
         run: uv run pytest
-{% else %}
-      - name: Build docs site
-        run: uvx mkdocs build -f .config/mkdocs.yml
 {% endif %}

@@ -12,14 +12,15 @@ services:
     init: true
 
     {% if stack_choice == "agents" %}
-    working_dir: /zeroclaw-data
+    working_dir: /workspaces/zeroclaw/src
     {% else %}
     working_dir: {{ workspace_dir }}
     {% endif %}
 
     {% if stack_choice == "agents" %}
     volumes:
-      - ..:/zeroclaw-data:cached
+      - ../src:/workspaces/zeroclaw/src:cached
+      - ../zeroclaw-data:/workspaces/zeroclaw/zeroclaw-data:cached
       - dev_history:/home/user/.history
       - uv_cache:/home/user/.cache/uv
     {% else %}
@@ -58,6 +59,12 @@ services:
               capabilities: [gpu]
     {% endif %}
 
+    {% if use_external_network %}
+    networks:
+      - default
+      - external-dev
+    {% endif %}
+
 
     # optional ports (uncomment if needed)
     # ports:
@@ -73,3 +80,10 @@ volumes:
   huggingface:
     name: huggingface_cache
   {% endif %}
+
+{% if use_external_network %}
+networks:
+  external-dev:
+    external: true
+    name: {{ external_network_name }}
+{% endif %}

@@ -66,6 +66,17 @@ with_node:
   default: false
   when: "{{ stack_choice == 'fullstack' }}"
 
+use_external_network:
+  type: bool
+  help: Should the devcontainer join an existing external Docker network?
+  default: false
+
+external_network_name:
+  type: str
+  help: What is the name of the external Docker network to join?
+  default: shared-dev-network
+  when: "{{ use_external_network }}"
+
 node_version:
   type: str
   help: Which Node.js version should your project use?

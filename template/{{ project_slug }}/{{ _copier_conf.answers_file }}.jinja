@@ -11,6 +11,10 @@ with_gpu: {{ with_gpu }}
 {% if with_gpu %}
 pytorch_cuda_tag: "{{ pytorch_cuda_tag }}"
 {% endif %}
+use_external_network: {{ use_external_network }}
+{% if use_external_network %}
+external_network_name: "{{ external_network_name }}"
+{% endif %}
 {% if stack_choice == "fullstack" %}
 with_node: {{ with_node }}
 {% endif %}
