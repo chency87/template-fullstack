@@ -14,9 +14,15 @@
 {% else %}
   "workspaceFolder": "{{ workspace_dir }}",
   "remoteEnv": {
+{% if with_gpu %}
+    "VIRTUAL_ENV": "/opt/conda",
+    "PATH": "/opt/conda/bin:${containerEnv:PATH}",
+    "UV_PROJECT_ENVIRONMENT": "/opt/conda"
+{% else %}
     "VIRTUAL_ENV": "/opt/venv",
     "PATH": "/opt/venv/bin:${containerEnv:PATH}",
     "UV_PROJECT_ENVIRONMENT": "/opt/venv"
+{% endif %}
   },
 {% endif %}
   "customizations": {
@@ -28,7 +34,11 @@
         "dbaeumer.vscode-eslint"{% endif %}
       ],
       "settings": {
+{% if stack_choice == "fullstack" and with_gpu %}
+        "python.defaultInterpreterPath": "/opt/conda/bin/python",
+{% else %}
         "python.defaultInterpreterPath": "/opt/venv/bin/python",
+{% endif %}
         "python.terminal.activateEnvironment": false
       }
     }

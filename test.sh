@@ -103,6 +103,17 @@ run_case() {
     grep -q 'starship' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'Run `uv sync`.' "${out_dir}/docs/index.md"
     grep -q 'Run `uv run mkdocs serve` to preview the docs.' "${out_dir}/docs/index.md"
+    if [[ "${with_gpu}" == "true" ]]; then
+      grep -q '"VIRTUAL_ENV": "/opt/conda"' "${out_dir}/.devcontainer/devcontainer.json"
+      grep -q '"PATH": "/opt/conda/bin:${containerEnv:PATH}"' "${out_dir}/.devcontainer/devcontainer.json"
+      grep -q '"UV_PROJECT_ENVIRONMENT": "/opt/conda"' "${out_dir}/.devcontainer/devcontainer.json"
+      grep -q '"python.defaultInterpreterPath": "/opt/conda/bin/python"' "${out_dir}/.devcontainer/devcontainer.json"
+    else
+      grep -q '"VIRTUAL_ENV": "/opt/venv"' "${out_dir}/.devcontainer/devcontainer.json"
+      grep -q '"PATH": "/opt/venv/bin:${containerEnv:PATH}"' "${out_dir}/.devcontainer/devcontainer.json"
+      grep -q '"UV_PROJECT_ENVIRONMENT": "/opt/venv"' "${out_dir}/.devcontainer/devcontainer.json"
+      grep -q '"python.defaultInterpreterPath": "/opt/venv/bin/python"' "${out_dir}/.devcontainer/devcontainer.json"
+    fi
     if [[ -d "${out_dir}/.config" || -d "${out_dir}/workspace" ]]; then
       echo "Unexpected agents layout in ${name}" >&2
       exit 1
