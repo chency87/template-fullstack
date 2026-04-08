@@ -16,10 +16,17 @@ ARG USER_GID=1000
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
+{% if with_gpu %}
+ENV VIRTUAL_ENV=/opt/conda
+{% else %}
 ENV VIRTUAL_ENV=/opt/venv
+{% endif %}
 ENV UV_TOOL_BIN_DIR=/home/user/.local/bin
 ENV PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH
 ENV UV_PROJECT_ENVIRONMENT=$VIRTUAL_ENV
+{% if with_gpu %}
+ENV UV_PYTHON=/opt/conda/bin/python
+{% endif %}
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
@@ -42,7 +49,6 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       wget && \
     groupadd --gid $USER_GID user && \
     useradd --create-home --no-log-init --gid $USER_GID --uid $USER_UID --shell /usr/bin/bash user && \
-    mkdir -p /opt/venv && chown user:user /opt/venv && \
     echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user && chmod 0440 /etc/sudoers.d/user
 {% else %}
 RUN --mount=type=cache,target=/var/cache/apt/ \
@@ -77,7 +83,11 @@ USER user
 
 RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
 
+{% if with_gpu %}
+RUN test -x "${UV_PYTHON}"
+{% else %}
 RUN uv venv "${VIRTUAL_ENV}"
+{% endif %}
 
 {% if with_node %}
 ARG NODE_VERSION="{{ node_version }}"

@@ -153,8 +153,20 @@ run_case() {
     grep -q 'ENV PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN printf '\''export PATH="%s:$PATH"\\n'\'' "$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR" > /etc/profile.d/devcontainer-path.sh' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"' "${out_dir}/.devcontainer/Dockerfile"
-    grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
     grep -q 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH' "${out_dir}/.devcontainer/Dockerfile"
+
+    if [[ "${with_gpu}" == "true" ]]; then
+      grep -q 'ENV VIRTUAL_ENV=/opt/conda' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'ENV UV_PYTHON=/opt/conda/bin/python' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'RUN test -x "${UV_PYTHON}"' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q '~/.cache/huggingface:/home/user/.cache/huggingface' "${out_dir}/.devcontainer/docker-compose.yml"
+      assert_not_contains 'huggingface_cache' "${out_dir}/.devcontainer/docker-compose.yml"
+      assert_not_contains 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
+    else
+      grep -q 'ENV VIRTUAL_ENV=/opt/venv' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
+      assert_not_contains 'ENV UV_PYTHON=/opt/conda/bin/python' "${out_dir}/.devcontainer/Dockerfile"
+    fi
 
     if [[ "${with_node}" == "true" ]]; then
       grep -q 'ARG NODE_VERSION="24"' "${out_dir}/.devcontainer/Dockerfile"
