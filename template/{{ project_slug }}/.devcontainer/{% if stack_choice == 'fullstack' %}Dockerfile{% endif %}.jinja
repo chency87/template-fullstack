@@ -49,6 +49,7 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
       wget && \
     groupadd --gid $USER_GID user && \
     useradd --create-home --no-log-init --gid $USER_GID --uid $USER_UID --shell /usr/bin/bash user && \
+    chown -R user:user /opt/conda && \
     echo 'user ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/user && chmod 0440 /etc/sudoers.d/user
 {% else %}
 RUN --mount=type=cache,target=/var/cache/apt/ \
@@ -84,6 +85,7 @@ USER user
 RUN mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
 
 {% if with_gpu %}
+RUN "${VIRTUAL_ENV}/bin/conda" init bash
 RUN test -x "${UV_PYTHON}"
 {% else %}
 RUN uv venv "${VIRTUAL_ENV}"
@@ -115,6 +117,9 @@ RUN mkdir -p "$HOME/.history" && \
     echo 'shopt -s histappend'                          >> "$HOME/.bashrc" && \
     echo 'PROMPT_COMMAND="history -a; history -c; history -r"' >> "$HOME/.bashrc" && \
     echo 'export PATH=$VIRTUAL_ENV/bin:$UV_TOOL_BIN_DIR:$PATH' >> "$HOME/.bashrc" && \
+    {% if with_gpu %}
+    echo 'conda activate base'                          >> "$HOME/.bashrc" && \
+    {% endif %}
     echo '[[ $- == *i* ]] && bind "\e[A":history-search-backward' >> "$HOME/.bashrc" && \
     echo '[[ $- == *i* ]] && bind "\e[B":history-search-forward'  >> "$HOME/.bashrc" && \
     echo 'if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi'  > "$HOME/.bash_profile"{% if with_node %} && \

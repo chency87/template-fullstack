@@ -169,7 +169,10 @@ run_case() {
     if [[ "${with_gpu}" == "true" ]]; then
       grep -q 'ENV VIRTUAL_ENV=/opt/conda' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'ENV UV_PYTHON=/opt/conda/bin/python' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'chown -R user:user /opt/conda' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q 'RUN "${VIRTUAL_ENV}/bin/conda" init bash' "${out_dir}/.devcontainer/Dockerfile"
       grep -q 'RUN test -x "${UV_PYTHON}"' "${out_dir}/.devcontainer/Dockerfile"
+      grep -q "echo 'conda activate base'" "${out_dir}/.devcontainer/Dockerfile"
       grep -q '~/.cache/huggingface:/home/user/.cache/huggingface' "${out_dir}/.devcontainer/docker-compose.yml"
       assert_not_contains 'huggingface_cache' "${out_dir}/.devcontainer/docker-compose.yml"
       assert_not_contains 'RUN uv venv "${VIRTUAL_ENV}"' "${out_dir}/.devcontainer/Dockerfile"
